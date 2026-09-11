@@ -1,2 +1,3 @@
 # AIbook
-test to learn git
+test to learn git.
+I should to use this file during the learning git/github.
