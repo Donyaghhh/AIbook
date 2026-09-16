@@ -1,56 +1,44 @@
-"""Simple command-line login.
-
-Demo accounts (change these before using this for anything real):
-  admin / admin123
-  guest / guest123
-"""
-
-from __future__ import annotations
-
-import getpass
-import hashlib
-import hmac
-import sys
-
-MAX_ATTEMPTS = 3
-
-# username -> sha256 hex digest of password
-USERS = {
-    "admin": hashlib.sha256(b"admin123").hexdigest(),
-    "guest": hashlib.sha256(b"guest123").hexdigest(),
+# Simple command-line login.
+set -euo pipefail
+MAX_ATTEMPTS=3
+hash_password() {
+  local password="$1"
+  printf '%s' "$password" | sha256sum | awk '{print $1}'
+}
+ADMIN_HASH="$(hash_password "admin123")"
+GUEST_HASH="$(hash_password "guest123")"
+check_credentials() {
+  local username="$1"
+  local password="$2"
+  local stored=""
+  local given
+  given="$(hash_password "$password")"
+  case "$username" in
+    admin) stored="$ADMIN_HASH" ;;
+    guest) stored="$GUEST_HASH" ;;
+    *) return 1 ;;
+  esac
+  [[ "$given" == "$stored" ]]
 }
 
-
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
-
-
-def check_credentials(username: str, password: str) -> bool:
-    stored = USERS.get(username)
-    if stored is None:
-        return False
-    return hmac.compare_digest(stored, hash_password(password))
-
-
-def login() -> bool:
-    print("=== Login ===")
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        username = input("Username: ").strip()
-        password = getpass.getpass("Password: ")
-
-        if check_credentials(username, password):
-            print(f"Welcome, {username}.")
-            return True
-
-        remaining = MAX_ATTEMPTS - attempt
-        if remaining:
-            print(f"Invalid username or password. {remaining} attempt(s) left.")
-        else:
-            print("Invalid username or password. Too many failed attempts.")
-
-    return False
-
-
-if __name__ == "__main__":
-    ok = login()
-    sys.exit(0 if ok else 1)
+login() {
+  echo "=== Login ==="
+  local attempt username password remaining
+  for ((attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)); do
+    read -r -p "Username: " username
+    read -r -s -p "Password: " password
+    echo
+    if check_credentials "$username" "$password"; then
+      echo "Welcome, ${username}."
+      return 0
+    fi
+    remaining=$((MAX_ATTEMPTS - attempt))
+    if ((remaining > 0)); then
+      echo "Invalid username or password. ${remaining} attempt(s) left."
+    else
+      echo "Invalid username or password. Too many failed attempts."
+    fi
+  done
+  return 1
+}
+login
